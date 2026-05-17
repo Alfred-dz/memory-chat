@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Memory — Conversations with the Architects of the Psyche</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #07090b;
+    --bg-surface: #0f1216;
+    --bg-elevated: #161a20;
+    --gold: #bfa25c;
+    --gold-dim: rgba(191,162,92,0.4);
+    --gold-soft: rgba(191,162,92,0.08);
+    --gold-glow: rgba(191,162,92,0.12);
+    --text-primary: #cec7ba;
+    --text-secondary: #8a8278;
+    --text-dim: #534e48;
+    --border: #1c2027;
+    --border-focus: rgba(191,162,92,0.35);
+    --error: #c09090;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 600px 400px at 50% 15%, rgba(191,162,92,0.05) 0%, transparent 100%),
+      radial-gradient(ellipse 800px 500px at 30% 75%, rgba(110,90,140,0.03) 0%, transparent 100%),
+      radial-gradient(ellipse 600px 500px at 75% 70%, rgba(60,90,120,0.03) 0%, transparent 100%);
+    pointer-events: none; z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── AUTH VIEW ── */
+  #authView {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+    height: 100vh; padding: 20px;
+  }
+  #authView.hidden { display: none; }
+  .auth-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px 32px 32px;
+    width: 100%; max-width: 400px;
+    box-shadow: 0 0 80px rgba(0,0,0,0.4);
+    animation: fadeIn 0.5s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .auth-card h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 2.6rem;
+    font-weight: 500;
+    color: var(--gold);
+    letter-spacing: 0.16em;
+    text-align: center;
+    text-transform: uppercase;
+    text-shadow: 0 0 30px var(--gold-glow);
+  }
+  .auth-card .ornament {
+    display: block; width: 50px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+    margin: 12px auto 16px;
+  }
+  .auth-card .subtitle {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 28px;
+    line-height: 1.6;
+  }
+  .auth-tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+  .auth-tab {
+    flex: 1; text-align: center; padding: 10px 0;
+    color: var(--text-dim); cursor: pointer;
+    font-size: 0.78rem; letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-bottom: 1px solid transparent;
+    transition: all 0.3s ease;
+  }
+  .auth-tab.active { color: var(--gold); border-bottom-color: var(--gold-dim); }
+  .auth-tab:hover { color: var(--text-secondary); }
+  .auth-form { display: none; }
+  .auth-form.active { display: block; }
+  .auth-form label {
+    display: block; font-size: 0.68rem; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
+  }
+  .auth-form input {
+    width: 100%; background: var(--bg-elevated);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 16px; color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 0.9rem;
+    outline: none; margin-bottom: 16px;
+    transition: border-color 0.3s ease;
+  }
+  .auth-form input:focus { border-color: var(--border-focus); }
+  .auth-form button {
+    width: 100%; padding: 13px 0; border-radius: 10px;
+    border: 1px solid rgba(191,162,92,0.35);
+    background: rgba(191,162,92,0.08);
+    color: var(--gold); cursor: pointer;
+    font-family: 'Inter', sans-serif; font-size: 0.88rem;
+    letter-spacing: 0.04em; margin-top: 4px;
+    transition: all 0.3s ease;
+  }
+  .auth-form button:hover { background: rgba(191,162,92,0.16); box-shadow: 0 0 24px rgba(191,162,92,0.1); }
+  .auth-error {
+    color: var(--error); font-size: 0.78rem; text-align: center;
+    min-height: 20px; margin-top: 10px;
+  }
+
+  /* ── CHAT VIEW ── */
+  #chatView { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100vh; }
+  #chatView.hidden { display: none; }
+  .top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 24px; border-bottom: 1px solid var(--border);
+    flex-shrink: 0; position: relative; z-index: 2;
+    background: rgba(7,9,11,0.85);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  }
+  .top-bar .user-info { display: flex; align-items: center; gap: 12px; }
+  .top-bar .user-name { font-size: 0.82rem; color: var(--text-secondary); letter-spacing: 0.03em; }
+  .top-bar .msg-count { font-size: 0.68rem; color: var(--text-dim); letter-spacing: 0.06em; }
+  .exit-btn {
+    background: none; border: 1px solid var(--border);
+    color: var(--text-dim); padding: 5px 16px; border-radius: 20px;
+    font-family: 'Inter', sans-serif; font-size: 0.7rem; cursor: pointer;
+    letter-spacing: 0.06em; transition: all 0.3s ease;
+  }
+  .exit-btn:hover { border-color: rgba(191,162,92,0.4); color: var(--gold); box-shadow: 0 0 16px rgba(191,162,92,0.08); }
+  .profile-banner {
+    display: none; text-align: center; padding: 10px 20px;
+    background: rgba(191,162,92,0.06); border-bottom: 1px solid rgba(191,162,92,0.12);
+    cursor: pointer; transition: background 0.3s ease;
+    flex-shrink: 0;
+  }
+  .profile-banner.visible { display: block; }
+  .profile-banner:hover { background: rgba(191,162,92,0.1); }
+  .profile-banner span { color: var(--gold); font-size: 0.8rem; letter-spacing: 0.04em; font-style: italic; font-family: 'Cormorant Garamond', serif; }
+  .chat-container {
+    flex: 1; overflow-y: auto; position: relative; z-index: 1;
+    padding: 8px 0 16px; scroll-behavior: smooth;
+  }
+  .chat-container::-webkit-scrollbar { width: 3px; }
+  .chat-container::-webkit-scrollbar-track { background: transparent; }
+  .chat-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 2px; }
+  .chat-inner { max-width: 720px; margin: 0 auto; padding: 0 24px; display: flex; flex-direction: column; gap: 20px; }
+  .welcome-msg {
+    text-align: center; padding: 40px 20px; color: var(--text-secondary);
+    font-family: 'Cormorant Garamond', serif; font-style: italic;
+    font-size: 1.05rem; line-height: 1.8; letter-spacing: 0.03em;
+    animation: fadeIn 0.8s ease;
+  }
+  .message {
+    display: flex; gap: 12px; max-width: 88%;
+    animation: fadeIn 0.45s ease;
+  }
+  .message.thinker { align-self: flex-start; }
+  .message.user    { align-self: flex-end; flex-direction: row-reverse; }
+  .message .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-family: 'Cinzel', serif; font-size: 0.75rem; font-weight: 600;
+    color: #fff; border: 1px solid rgba(255,255,255,0.08); margin-top: 2px;
+  }
+  .message .bubble {
+    padding: 14px 18px; border-radius: 16px; line-height: 1.7; font-size: 0.9rem;
+  }
+  .message.thinker .bubble {
+    background: var(--bg-elevated); border: 1px solid var(--border); border-bottom-left-radius: 4px;
+  }
+  .message.user .bubble {
+    background: var(--gold-soft); border: 1px solid rgba(191,162,92,0.15); border-bottom-right-radius: 4px;
+  }
+  .message .time { font-size: 0.62rem; color: var(--text-dim); margin-top: 5px; padding: 0 6px; }
+  .message.error .bubble {
+    background: rgba(180,70,70,0.08); border-color: rgba(180,70,70,0.2); color: var(--error); font-size: 0.85rem;
+  }
+  .typing { display: none; align-items: center; gap: 12px; align-self: flex-start; padding-left: 48px; }
+  .typing.visible { display: flex; animation: fadeIn 0.3s ease; }
+  .typing-dots { display: flex; gap: 5px; padding: 16px 20px; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 16px; border-bottom-left-radius: 4px; }
+  .typing-dots span { width: 5px; height: 5px; border-radius: 50%; background: var(--text-dim); animation: bounce 1.4s infinite ease-in-out; }
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100% { transform: translateY(0); opacity: 0.25; } 30% { transform: translateY(-7px); opacity: 1; } }
+  .input-area { position: relative; z-index: 1; padding: 16px 24px 28px; flex-shrink: 0; }
+  .input-inner { max-width: 720px; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; }
+  .input-inner textarea {
+    flex: 1; background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px 18px; color: var(--text-primary);
+    font-family: 'Inter', sans-serif; font-size: 0.9rem; resize: none;
+    outline: none; transition: border-color 0.35s ease, box-shadow 0.35s ease;
+    line-height: 1.5; max-height: 120px;
+  }
+  .input-inner textarea:focus { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(191,162,92,0.05); }
+  .input-inner textarea::placeholder { color: var(--text-dim); }
+  .input-inner button {
+    width: 46px; height: 46px; border-radius: 50%;
+    border: 1px solid rgba(191,162,92,0.35);
+    background: rgba(191,162,92,0.06); color: var(--gold); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.3s ease; flex-shrink: 0;
+  }
+  .input-inner button:hover { background: rgba(191,162,92,0.14); border-color: var(--gold-dim); box-shadow: 0 0 24px rgba(191,162,92,0.12); }
+  .input-inner button:disabled { opacity: 0.25; cursor: not-allowed; box-shadow: none; }
+
+  /* ── PROFILE OVERLAY ── */
+  #profileOverlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(7,9,11,0.94);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #profileOverlay.visible { display: flex; }
+  .profile-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 36px 32px; max-width: 560px; width: 100%;
+    max-height: 85vh; overflow-y: auto;
+    box-shadow: 0 0 80px rgba(191,162,92,0.06);
+    animation: fadeIn 0.4s ease;
+  }
+  .profile-card h2 {
+    font-family: 'Cinzel', serif; font-size: 1.6rem; color: var(--gold);
+    text-align: center; letter-spacing: 0.08em; margin-bottom: 8px;
+  }
+  .profile-figure { font-family: 'Cinzel', serif; font-size: 1.4rem; color: var(--text-primary); text-align: center; margin-top: 12px; }
+  .profile-domain { font-size: 0.75rem; color: var(--gold); text-align: center; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
+  .profile-explain { font-size: 0.88rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 20px; }
+  .profile-subtitle { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+  .profile-secondary { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 10px; }
+  .profile-summary {
+    font-family: 'Cormorant Garamond', serif; font-style: italic;
+    font-size: 1rem; color: var(--text-primary); line-height: 1.7;
+    margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+  }
+  .profile-traits { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 20px; }
+  .trait-tag {
+    font-size: 0.7rem; color: var(--gold); padding: 4px 14px;
+    border: 1px solid var(--gold-dim); border-radius: 20px;
+    letter-spacing: 0.04em; background: var(--gold-soft);
+  }
+  .profile-close {
+    display: block; margin: 24px auto 0; padding: 10px 32px;
+    border: 1px solid rgba(191,162,92,0.3); border-radius: 10px;
+    background: rgba(191,162,92,0.06); color: var(--gold); cursor: pointer;
+    font-size: 0.82rem; letter-spacing: 0.04em; transition: all 0.3s ease;
+  }
+  .profile-close:hover { background: rgba(191,162,92,0.14); }
+
+  /* ── EXIT OVERLAY ── */
+  #exitOverlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(7,9,11,0.96);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+  #exitOverlay.visible { opacity: 1; pointer-events: all; }
+  #exitOverlay .exit-text {
+    font-family: 'Cinzel', serif; font-size: clamp(2rem, 6vw, 3.5rem);
+    color: var(--gold); letter-spacing: 0.2em; z-index: 2;
+    animation: exitFadeIn 0.6s ease;
+    text-shadow: 0 0 40px var(--gold-glow);
+    user-select: none;
+  }
+  @keyframes exitFadeIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+  .exit-emoji {
+    position: absolute; bottom: -40px;
+    animation: emojiFloat 3s ease-out forwards;
+    opacity: 0; z-index: 1; user-select: none;
+  }
+  @keyframes emojiFloat {
+    0%   { opacity: 1; transform: translateY(0) scale(0.5) rotate(0deg); }
+    50%  { opacity: 1; transform: translateY(-60vh) scale(1.2) rotate(180deg); }
+    100% { opacity: 0; transform: translateY(-100vh) scale(0.3) rotate(360deg); }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 640px) {
+    .auth-card { padding: 28px 20px 24px; }
+    .auth-card h1 { font-size: 2rem; letter-spacing: 0.1em; }
+    .top-bar { padding: 10px 16px; }
+    .chat-inner { padding: 0 14px; }
+    .input-area { padding: 12px 14px 22px; }
+    .message { max-width: 94%; }
+    .profile-card { padding: 24px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     AUTH VIEW
+     ═══════════════════════════════════════════════ -->
+<div id="authView" class="hidden">
+  <div class="auth-card">
+    <h1>Memory</h1>
+    <span class="ornament"></span>
+    <p class="subtitle">所忆即所成。</p>
+    <div class="auth-tabs">
+      <div class="auth-tab active" data-tab="login">已有账号</div>
+      <div class="auth-tab" data-tab="register">初次到访</div>
+    </div>
+    <!-- Login form -->
+    <form class="auth-form active" id="loginForm" autocomplete="off">
+      <label>用户名</label>
+      <input type="text" id="loginUsername" placeholder="输入用户名" maxlength="30" required>
+      <label>密码</label>
+      <input type="password" id="loginPassword" placeholder="输入密码" required>
+      <button type="submit">进入对话</button>
+      <div class="auth-error" id="loginError"></div>
+    </form>
+    <!-- Register form -->
+    <form class="auth-form" id="registerForm" autocomplete="off">
+      <label>用户名</label>
+      <input type="text" id="regUsername" placeholder="取一个名字" maxlength="30" required>
+      <label>密码</label>
+      <input type="password" id="regPassword" placeholder="至少4个字符" minlength="4" required>
+      <label>确认密码</label>
+      <input type="password" id="regPasswordConfirm" placeholder="再次输入密码" minlength="4" required>
+      <button type="submit">开始旅程</button>
+      <div class="auth-error" id="registerError"></div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     CHAT VIEW
+     ═══════════════════════════════════════════════ -->
+<div id="chatView" class="hidden">
+  <div class="top-bar">
+    <div class="user-info">
+      <span class="user-name" id="displayName"></span>
+      <span class="msg-count" id="msgCounter"></span>
+    </div>
+    <button class="exit-btn" id="exitBtn" title="离开">离开</button>
+  </div>
+  <div class="profile-banner" id="profileBanner">
+    <span>那些深邃的目光已看见了你。你的画像已绘成。</span>
+  </div>
+  <div class="chat-container" id="chatContainer">
+    <div class="chat-inner" id="chatInner">
+      <div class="welcome-msg" id="welcomeMsg">
+        记忆之中，自我凝视自身的生成。<br>
+        诉说即可，无需保留。此处的沉默亦有重量。
+      </div>
+      <div class="typing" id="typingIndicator">
+        <div class="typing-dots"><span></span><span></span><span></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="input-area">
+    <div class="input-inner">
+      <textarea id="messageInput" rows="1" placeholder="写下你的思绪…"></textarea>
+      <button type="button" id="sendBtn" title="发送">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PROFILE OVERLAY
+     ═══════════════════════════════════════════════ -->
+<div id="profileOverlay">
+  <div class="profile-card" id="profileCard"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXIT OVERLAY
+     ═══════════════════════════════════════════════ -->
+<div id="exitOverlay">
+  <div class="exit-text" id="exitText">天天开心</div>
+  <div id="exitEmojis"></div>
+</div>
+
+<script>
+// ──────────────────────────────────────────────
+//  DOM refs
+// ──────────────────────────────────────────────
+const authView = document.getElementById('authView');
+const chatView = document.getElementById('chatView');
+const profileOverlay = document.getElementById('profileOverlay');
+const profileCard = document.getElementById('profileCard');
+const profileBanner = document.getElementById('profileBanner');
+const exitOverlay = document.getElementById('exitOverlay');
+const chatContainer = document.getElementById('chatContainer');
+const chatInner = document.getElementById('chatInner');
+const welcomeMsg = document.getElementById('welcomeMsg');
+const typingIndicator = document.getElementById('typingIndicator');
+const messageInput = document.getElementById('messageInput');
+const sendBtn = document.getElementById('sendBtn');
+const displayName = document.getElementById('displayName');
+const msgCounter = document.getElementById('msgCounter');
+const exitBtn = document.getElementById('exitBtn');
+
+// ──────────────────────────────────────────────
+//  State
+// ──────────────────────────────────────────────
+let currentUser = null;
+let isWaiting = false;
+let hasProfile = false;
+let profilePolling = null;
+
+// ──────────────────────────────────────────────
+//  View switching
+// ──────────────────────────────────────────────
+function showAuthView() {
+  authView.classList.remove('hidden');
+  chatView.classList.add('hidden');
+  profileOverlay.classList.remove('visible');
+  exitOverlay.classList.remove('visible');
+}
+
+function showChatView() {
+  authView.classList.add('hidden');
+  chatView.classList.remove('hidden');
+  messageInput.focus();
+}
+
+// ──────────────────────────────────────────────
+//  Auth tabs
+// ──────────────────────────────────────────────
+document.querySelectorAll('.auth-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+    document.getElementById(tab.dataset.tab + 'Form').classList.add('active');
+    document.getElementById('loginError').textContent = '';
+    document.getElementById('registerError').textContent = '';
+  });
+});
+
+// ──────────────────────────────────────────────
+//  Login
+// ──────────────────────────────────────────────
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errorEl = document.getElementById('loginError');
+  errorEl.textContent = '';
+
+  if (!username || !password) {
+    errorEl.textContent = '请填写所有字段。';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (!res.ok) { errorEl.textContent = data.error; return; }
+    enterApp(data);
+  } catch (err) {
+    errorEl.textContent = '连接失败，请重试。';
+  }
+});
+
+// ──────────────────────────────────────────────
+//  Register
+// ──────────────────────────────────────────────
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('regUsername').value.trim();
+  const password = document.getElementById('regPassword').value;
+  const confirm = document.getElementById('regPasswordConfirm').value;
+  const errorEl = document.getElementById('registerError');
+  errorEl.textContent = '';
+
+  if (!username || !password) {
+    errorEl.textContent = '请填写所有字段。';
+    return;
+  }
+  if (password !== confirm) {
+    errorEl.textContent = '两次输入的密码不一致。';
+    return;
+  }
+  if (password.length < 4) {
+    errorEl.textContent = '密码至少需要4个字符。';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (!res.ok) { errorEl.textContent = data.error; return; }
+    enterApp(data);
+  } catch (err) {
+    errorEl.textContent = '连接失败，请重试。';
+  }
+});
+
+// ──────────────────────────────────────────────
+//  Enter the app after auth
+// ──────────────────────────────────────────────
+async function enterApp(user) {
+  currentUser = user;
+  hasProfile = user.hasProfile;
+  displayName.textContent = user.username;
+  updateMessageCounter(user.messageCount);
+  showChatView();
+
+  // Load history
+  try {
+    const res = await fetch('/api/chat/history');
+    const data = await res.json();
+    if (data.messages && data.messages.length > 0) {
+      if (welcomeMsg) welcomeMsg.remove();
+      for (const m of data.messages) {
+        const role = m.role === 'assistant' ? 'thinker' : 'user';
+        addMessage(role, m.content, m.created_at);
+      }
+    }
+  } catch (err) { /* silent */ }
+
+  // Clear auth form
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('regUsername').value = '';
+  document.getElementById('regPassword').value = '';
+  document.getElementById('regPasswordConfirm').value = '';
+
+  // Show profile banner if user already has one
+  if (hasProfile) {
+    profileBanner.classList.add('visible');
+  }
+}
+
+// ──────────────────────────────────────────────
+//  Message counter
+// ──────────────────────────────────────────────
+function updateMessageCounter(count) {
+  msgCounter.textContent = '对话: ' + count;
+}
+
+// ──────────────────────────────────────────────
+//  Add message to UI
+// ──────────────────────────────────────────────
+function addMessage(role, text, timestamp) {
+  if (welcomeMsg) welcomeMsg.remove();
+
+  const time = timestamp
+    ? new Date(timestamp + 'Z').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  const msgDiv = document.createElement('div');
+  msgDiv.className = 'message ' + (role === 'error' ? 'error' : role);
+
+  if (role === 'thinker' || role === 'error') {
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.style.background = role === 'error' ? '#6b4040' : '#2a2820';
+    avatar.textContent = role === 'error' ? '!' : 'M';
+    msgDiv.appendChild(avatar);
+  }
+
+  const body = document.createElement('div');
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = role === 'error' ? text : escapeHtml(text);
+  body.appendChild(bubble);
+
+  const timeEl = document.createElement('div');
+  timeEl.className = 'time';
+  timeEl.textContent = time;
+  body.appendChild(timeEl);
+
+  msgDiv.appendChild(body);
+  chatInner.insertBefore(msgDiv, typingIndicator);
+  scrollDown();
+}
+
+function showTyping() { typingIndicator.classList.add('visible'); scrollDown(); }
+function hideTyping() { typingIndicator.classList.remove('visible'); }
+
+function scrollDown() {
+  requestAnimationFrame(() => { chatContainer.scrollTop = chatContainer.scrollHeight; });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ──────────────────────────────────────────────
+//  Send message
+// ──────────────────────────────────────────────
+async function sendMessage() {
+  if (isWaiting || !currentUser) return;
+  const text = messageInput.value.trim();
+  if (!text) return;
+
+  isWaiting = true;
+  messageInput.disabled = true;
+  sendBtn.disabled = true;
+
+  addMessage('user', text);
+  messageInput.value = '';
+  messageInput.style.height = 'auto';
+  showTyping();
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text })
+    });
+    const data = await res.json();
+    hideTyping();
+
+    if (!res.ok) {
+      addMessage('error', data.error + (data.hint ? '<br><small>' + data.hint + '</small>' : ''));
+    } else {
+      addMessage('thinker', data.reply);
+      updateMessageCounter(data.messageCount);
+
+      // Check if profile just became available
+      if (data.hasProfile && !hasProfile) {
+        hasProfile = true;
+        profileBanner.classList.add('visible');
+      }
+
+      // Start polling if threshold reached but no profile yet
+      if (data.messageCount >= 20 && !data.hasProfile && !profilePolling) {
+        startProfilePolling();
+      }
+    }
+  } catch (err) {
+    hideTyping();
+    addMessage('error', '连接中断，那些声音暂时沉默了下来。');
+  }
+
+  isWaiting = false;
+  messageInput.disabled = false;
+  sendBtn.disabled = false;
+  messageInput.focus();
+}
+
+// ──────────────────────────────────────────────
+//  Profile polling (after 20 messages)
+// ──────────────────────────────────────────────
+function startProfilePolling() {
+  let attempts = 0;
+  profilePolling = setInterval(async () => {
+    attempts++;
+    try {
+      const res = await fetch('/api/analysis');
+      const data = await res.json();
+      if (data.ready) {
+        clearInterval(profilePolling);
+        profilePolling = null;
+        hasProfile = true;
+        profileBanner.classList.add('visible');
+      } else if (attempts >= 10) {
+        clearInterval(profilePolling);
+        profilePolling = null;
+      }
+    } catch (err) { /* continue polling */ }
+  }, 3000);
+}
+
+// ──────────────────────────────────────────────
+//  Profile view
+// ──────────────────────────────────────────────
+profileBanner.addEventListener('click', async () => {
+  await showProfile();
+});
+
+async function showProfile() {
+  try {
+    const res = await fetch('/api/analysis');
+    const data = await res.json();
+    if (!data.ready) return;
+
+    const traitsHtml = data.traits.map(t => `<span class="trait-tag">${escapeHtml(t)}</span>`).join('');
+    profileCard.innerHTML = `
+      <h2>你的内在轮廓</h2>
+      <div class="profile-traits">${traitsHtml}</div>
+      ${data.profileText}
+      <button class="profile-close" onclick="closeProfile()">返回对话</button>
+    `;
+    profileOverlay.classList.add('visible');
+  } catch (err) {
+    /* silent */
+  }
+}
+
+function closeProfile() { profileOverlay.classList.remove('visible'); }
+profileOverlay.addEventListener('click', (e) => {
+  if (e.target === profileOverlay) closeProfile();
+});
+
+// ──────────────────────────────────────────────
+//  Exit flow
+// ──────────────────────────────────────────────
+exitBtn.addEventListener('click', () => {
+  exitOverlay.classList.add('visible');
+  const container = document.getElementById('exitEmojis');
+  container.innerHTML = '';
+  const emojis = ['✨','💛','⭐','🎈','💫','🌟','💝','🕊','🌺','🎉','🌈','🦋','💜','🎀','🌷','🍀'];
+  for (let i = 0; i < 35; i++) {
+    const span = document.createElement('span');
+    span.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    span.className = 'exit-emoji';
+    span.style.left = Math.random() * 100 + '%';
+    span.style.animationDelay = Math.random() * 1.5 + 's';
+    span.style.animationDuration = (2 + Math.random() * 2) + 's';
+    span.style.fontSize = (18 + Math.random() * 30) + 'px';
+    container.appendChild(span);
+  }
+
+  setTimeout(() => {
+    window.close();
+    setTimeout(() => {
+      const el = document.getElementById('exitText');
+      if (el) el.textContent = '再会。对话已留于你心。';
+    }, 500);
+  }, 2000);
+});
+
+// ──────────────────────────────────────────────
+//  Event listeners
+// ──────────────────────────────────────────────
+sendBtn.addEventListener('click', sendMessage);
+messageInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+messageInput.addEventListener('input', () => {
+  messageInput.style.height = 'auto';
+  messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+});
+
+// ──────────────────────────────────────────────
+//  Init
+// ──────────────────────────────────────────────
+(async () => {
+  try {
+    const res = await fetch('/api/auth/me');
+    const data = await res.json();
+    if (data.authenticated) {
+      enterApp(data);
+    } else {
+      showAuthView();
+    }
+  } catch (err) {
+    showAuthView();
+  }
+})();
+</script>
+</body>
+</html>

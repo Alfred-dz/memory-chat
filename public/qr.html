@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Memory — 扫码访问</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,400;1,400&family=Inter:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #07090b;
+    --gold: #bfa25c;
+    --text-primary: #cec7ba;
+    --text-secondary: #8a8278;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+  h1 {
+    font-family: 'Cinzel', 'STSong', serif;
+    font-size: clamp(2rem, 5vw, 3rem);
+    color: var(--gold);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    text-shadow: 0 0 40px rgba(191,162,92,0.1);
+  }
+  .url {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 32px;
+    letter-spacing: 0.04em;
+    font-family: 'Inter', sans-serif;
+  }
+  .qr-wrapper {
+    background: #0f1216;
+    border: 1px solid rgba(191,162,92,0.2);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 0 60px rgba(191,162,92,0.06);
+  }
+  .qr-wrapper img {
+    display: block;
+    width: 280px;
+    height: 280px;
+  }
+  .hint {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-top: 28px;
+    text-align: center;
+    line-height: 1.8;
+  }
+  .hint small {
+    display: block;
+    opacity: 0.5;
+    font-size: 0.75rem;
+    margin-top: 6px;
+  }
+  .welcome-back {
+    color: var(--gold);
+    font-size: 0.85rem;
+    margin-top: 20px;
+    text-align: center;
+    font-style: italic;
+    font-family: 'Cormorant Garamond', serif;
+  }
+</style>
+</head>
+<body>
+  <h1>Memory</h1>
+  <p class="url" id="baseUrl">Loading…</p>
+  <div class="qr-wrapper">
+    <img id="qrImage" src="/api/qr-image" alt="QR Code" width="280" height="280">
+  </div>
+  <p class="hint">
+    用微信扫一扫打开<br>
+    <small>对话将被记住，下次扫码继续</small>
+  </p>
+  <div class="welcome-back" id="welcomeBack"></div>
+
+  <script>
+    // Show the actual base URL
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        if (data.authenticated) {
+          document.getElementById('welcomeBack').textContent = 'Welcome back, ' + data.username;
+        }
+      } catch (err) {}
+
+      // Show current URL as text
+      const img = document.getElementById('qrImage');
+      img.onerror = () => {
+        img.alt = 'QR code unavailable';
+      };
+      document.getElementById('baseUrl').textContent = window.location.origin;
+    })();
+  </script>
+</body>
+</html>
