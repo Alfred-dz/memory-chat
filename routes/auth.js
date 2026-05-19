@@ -5,7 +5,7 @@ const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-const USERNAME_RE = /^[a-zA-Z0-9_]{2,30}$/;
+const USERNAME_RE = /^[^\s'"<>{}|\\/]{2,30}$/;
 const PASSWORD_MIN = 4;
 
 // POST /api/auth/register
@@ -14,7 +14,7 @@ router.post('/register', async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !USERNAME_RE.test(username)) {
-      return res.status(400).json({ error: '用户名：2-30个字符，仅限字母、数字和下划线。' });
+      return res.status(400).json({ error: '用户名：2-30个字符，支持中文、字母、数字和下划线。' });
     }
     if (!password || password.length < PASSWORD_MIN) {
       return res.status(400).json({ error: '密码至少需要4个字符。' });
@@ -49,7 +49,11 @@ router.post('/login', async (req, res) => {
 
     const user = db.findUserByUsername(username);
     if (!user) {
-      return res.status(401).json({ error: '用户名或密码错误。' });
+      return res.status(401).json({ error: '数据已更新，请重新创建账号。' });
+    }
+
+    if (user.blocked) {
+      return res.status(403).json({ error: '您已被拉黑 💥💣🧨🔥💢💥' });
     }
 
     const valid = await bcrypt.compare(password, user.password);

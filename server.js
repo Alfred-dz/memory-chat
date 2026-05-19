@@ -36,6 +36,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Force UTF-8 on all API responses
 app.use(session({
   store: sessionStore,
   secret: SESSION_SECRET,

@@ -20,8 +20,10 @@ if (usePostgres) {
         username    TEXT    UNIQUE NOT NULL,
         password    TEXT    NOT NULL,
         is_admin    INTEGER DEFAULT 0,
+        blocked     INTEGER DEFAULT 0,
         created_at  TEXT    DEFAULT (to_char(now(), 'YYYY-MM-DD HH24:MI:SS'))
       );
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked INTEGER DEFAULT 0;
       CREATE TABLE IF NOT EXISTS messages (
         id          SERIAL PRIMARY KEY,
         user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -57,12 +59,12 @@ if (usePostgres) {
       .then(r => r.rows[0] || null);
   }
   function getUserById(id) {
-    return db.query('SELECT id, username, is_admin, created_at FROM users WHERE id = $1', [id])
+    return db.query('SELECT id, username, is_admin, blocked, created_at FROM users WHERE id = $1', [id])
       .then(r => r.rows[0] || null);
   }
   function getAllUsers() {
     return db.query(`
-      SELECT u.id, u.username, u.created_at,
+      SELECT u.id, u.username, u.blocked, u.created_at,
              COUNT(m.id)::int AS message_count,
              CASE WHEN p.id IS NOT NULL THEN 1 ELSE 0 END::int AS has_profile
       FROM users u
@@ -103,6 +105,14 @@ if (usePostgres) {
       .then(r => r.rows[0] || null);
   }
 
+  function blockUser(userId, blocked) {
+    return db.query('UPDATE users SET blocked = $1 WHERE id = $2', [blocked ? 1 : 0, userId]);
+  }
+
+  function deleteUser(userId) {
+    return db.query('DELETE FROM users WHERE id = $1', [userId]);
+  }
+
 } else {
   // ── SQLite (for local development) ──
   const Database = require('better-sqlite3');
@@ -120,8 +130,13 @@ if (usePostgres) {
         username    TEXT    UNIQUE NOT NULL COLLATE NOCASE,
         password    TEXT    NOT NULL,
         is_admin    INTEGER DEFAULT 0,
+        blocked     INTEGER DEFAULT 0,
         created_at  TEXT    DEFAULT (datetime('now'))
       );
+    `);
+    // Add blocked column if missing (migration)
+    try { db.prepare('ALTER TABLE users ADD COLUMN blocked INTEGER DEFAULT 0').run(); } catch(e) {}
+    db.exec(`
       CREATE TABLE IF NOT EXISTS messages (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id     INTEGER NOT NULL,
@@ -152,11 +167,11 @@ if (usePostgres) {
     return db.prepare('SELECT * FROM users WHERE username = ?').get(username);
   }
   function getUserById(id) {
-    return db.prepare('SELECT id, username, is_admin, created_at FROM users WHERE id = ?').get(id);
+    return db.prepare('SELECT id, username, is_admin, blocked, created_at FROM users WHERE id = ?').get(id);
   }
   function getAllUsers() {
     return db.prepare(`
-      SELECT u.id, u.username, u.created_at,
+      SELECT u.id, u.username, u.blocked, u.created_at,
              COUNT(m.id) AS message_count,
              CASE WHEN p.id IS NOT NULL THEN 1 ELSE 0 END AS has_profile
       FROM users u
@@ -193,6 +208,14 @@ if (usePostgres) {
   function getProfile(userId) {
     return db.prepare('SELECT * FROM personality_profiles WHERE user_id = ?').get(userId);
   }
+
+  function blockUser(userId, blocked) {
+    db.prepare('UPDATE users SET blocked = ? WHERE id = ?').run(blocked ? 1 : 0, userId);
+  }
+
+  function deleteUser(userId) {
+    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+  }
 }
 
 initDB();
@@ -208,5 +231,7 @@ module.exports = {
   getMessages,
   countMessages,
   saveProfile,
-  getProfile
+  getProfile,
+  blockUser,
+  deleteUser
 };

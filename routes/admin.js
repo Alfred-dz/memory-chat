@@ -69,4 +69,34 @@ router.get('/conversations/:userId', requireAdmin, (req, res) => {
   }
 });
 
+// POST /api/admin/users/:userId/block
+router.post('/users/:userId/block', requireAdmin, (req, res) => {
+  try {
+    const user = db.getUserById(req.params.userId);
+    if (!user) return res.status(404).json({ error: '用户不存在。' });
+
+    const newBlocked = user.blocked ? 0 : 1;
+    db.blockUser(req.params.userId, newBlocked);
+
+    res.json({ success: true, blocked: !!newBlocked });
+  } catch (err) {
+    console.error('Block error:', err);
+    res.status(500).json({ error: '操作失败。' });
+  }
+});
+
+// DELETE /api/admin/users/:userId
+router.delete('/users/:userId', requireAdmin, (req, res) => {
+  try {
+    const user = db.getUserById(req.params.userId);
+    if (!user) return res.status(404).json({ error: '用户不存在。' });
+
+    db.deleteUser(req.params.userId);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete error:', err);
+    res.status(500).json({ error: '删除失败。' });
+  }
+});
+
 module.exports = router;

@@ -288,6 +288,17 @@
     user-select: none;
   }
   @keyframes exitFadeIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+  .relogin-btn {
+    position: relative; z-index: 3;
+    margin-top: 36px; padding: 12px 40px;
+    border: 1px solid rgba(191,162,92,0.4); border-radius: 12px;
+    background: rgba(191,162,92,0.08); color: var(--gold);
+    font-family: 'Inter', sans-serif; font-size: 0.9rem;
+    cursor: pointer; letter-spacing: 0.08em;
+    transition: all 0.3s ease;
+    animation: exitFadeIn 1s ease 0.6s both;
+  }
+  .relogin-btn:hover { background: rgba(191,162,92,0.18); box-shadow: 0 0 30px rgba(191,162,92,0.12); }
   .exit-emoji {
     position: absolute; bottom: -40px;
     animation: emojiFloat 3s ease-out forwards;
@@ -398,6 +409,7 @@
 <div id="exitOverlay">
   <div class="exit-text" id="exitText">天天开心</div>
   <div id="exitEmojis"></div>
+  <button class="relogin-btn" id="reloginBtn">重新登录</button>
 </div>
 
 <script>
@@ -731,6 +743,9 @@ profileOverlay.addEventListener('click', (e) => {
 // ──────────────────────────────────────────────
 exitBtn.addEventListener('click', () => {
   exitOverlay.classList.add('visible');
+  document.getElementById('exitText').textContent = '天天开心';
+  document.getElementById('reloginBtn').style.display = '';
+
   const container = document.getElementById('exitEmojis');
   container.innerHTML = '';
   const emojis = ['✨','💛','⭐','🎈','💫','🌟','💝','🕊','🌺','🎉','🌈','🦋','💜','🎀','🌷','🍀'];
@@ -744,14 +759,32 @@ exitBtn.addEventListener('click', () => {
     span.style.fontSize = (18 + Math.random() * 30) + 'px';
     container.appendChild(span);
   }
+});
 
-  setTimeout(() => {
-    window.close();
-    setTimeout(() => {
-      const el = document.getElementById('exitText');
-      if (el) el.textContent = '再会。对话已留于你心。';
-    }, 500);
-  }, 2000);
+document.getElementById('reloginBtn').addEventListener('click', async () => {
+  // Logout current session
+  try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+
+  // Clear state
+  currentUser = null;
+  hasProfile = false;
+  if (profilePolling) { clearInterval(profilePolling); profilePolling = null; }
+  messageInput.value = '';
+  chatInner.querySelectorAll('.message').forEach(m => m.remove());
+  if (!document.getElementById('welcomeMsg')) {
+    const w = document.createElement('div');
+    w.className = 'welcome-msg';
+    w.id = 'welcomeMsg';
+    w.innerHTML = '记忆之中，自我凝视自身的生成。<br>诉说即可，无需保留。此处的沉默亦有重量。';
+    chatInner.insertBefore(w, typingIndicator);
+  }
+  document.getElementById('msgCounter').textContent = '';
+  document.getElementById('displayName').textContent = '';
+  profileBanner.classList.remove('visible');
+
+  // Hide exit overlay and show auth view
+  exitOverlay.classList.remove('visible');
+  showAuthView();
 });
 
 // ──────────────────────────────────────────────
