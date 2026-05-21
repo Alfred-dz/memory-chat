@@ -1,0 +1,6 @@
+FROM openjdk:17-slim
+WORKDIR /app
+COPY application.yml /app/
+ENV TZ=Asia/Shanghai
+EXPOSE 8080
+CMD ["java", "-jar", "tlias.jar"]
